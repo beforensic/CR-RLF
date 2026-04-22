@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Bash(npm -v)",
+      "Bash(git --version)",
+      "Bash(npx --yes create-next-app@latest . --typescript --tailwind --app --src-dir --eslint --use-npm --turbopack --import-alias \"@/*\" --no-install --yes)"
+    ]
+  }
+}
