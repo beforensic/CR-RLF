@@ -1,0 +1,138 @@
+// Croix-Rouge RLF — OSINT training platform
+// Auth is delegated to Clerk. This DB mirrors users via clerkUserId
+// and owns all domain data (modules, lessons, progress, roles, audit).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  LEARNER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  clerkUserId  String   @unique
+  email        String   @unique
+  name         String
+  role         Role     @default(LEARNER)
+  isActive     Boolean  @default(true)
+
+  managedById  String?
+  managedBy    User?    @relation("Managed", fields: [managedById], references: [id], onDelete: SetNull)
+  learners     User[]   @relation("Managed")
+
+  progresses   LessonProgress[]
+  quizAttempts QuizAttempt[]
+  auditLogs    AuditLog[]       @relation("Actor")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([managedById])
+  @@index([role])
+}
+
+model Module {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String
+  order       Int      @default(0)
+  isPublished Boolean  @default(false)
+  lessons     Lesson[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Lesson {
+  id         String  @id @default(cuid())
+  moduleId   String
+  module     Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  slug       String
+  title      String
+  content    String  // markdown
+  videoUrl   String?
+  order      Int     @default(0)
+
+  quiz       Quiz?
+  progresses LessonProgress[]
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([moduleId, slug])
+  @@index([moduleId])
+}
+
+model Quiz {
+  id        String     @id @default(cuid())
+  lessonId  String     @unique
+  lesson    Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  passScore Int        @default(70)
+  questions Question[]
+  attempts  QuizAttempt[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Question {
+  id      String @id @default(cuid())
+  quizId  String
+  quiz    Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  prompt  String
+  type    String // "single" | "multi"
+  options Json   // [{ id: string, label: string, isCorrect: boolean }]
+  order   Int    @default(0)
+
+  @@index([quizId])
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  quizId    String
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score     Int
+  passed    Boolean
+  answers   Json     // { [questionId]: string[] }
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([quizId])
+}
+
+model LessonProgress {
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId    String
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@id([userId, lessonId])
+  @@index([lessonId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("Actor", fields: [actorId], references: [id], onDelete: SetNull)
+  action    String   // e.g. "user.create", "user.role.change", "user.deactivate", "module.publish"
+  target    String?  // opaque id of affected resource
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+}
