@@ -18,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider localization={frFR}>
-      <html lang="fr" className="h-full antialiased">
+      <html lang="fr" className="h-full antialiased" suppressHydrationWarning>
         <body className="min-h-full bg-background text-foreground">
           {children}
           <Toaster richColors position="top-right" />
